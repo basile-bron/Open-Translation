@@ -1,0 +1,23 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pillow "==9.5.0"
+pytesseract = "*"
+googletrans = "==4.0.0-rc1"
+Pillow = "==9.5.0"
+google_trans_new = "*"
+deep-translator = "*"
+opencv-python = "*"
+tesseract = "*"
+
+[dev-packages]
+tesseract-ocr-jpn = "*"
+tesseract-ocr-jpn-vert = "*"
+tesseract-ocr-kor = "*"
+tesseract-lang = "*"
+
+[requires]
+python_version = "3.10"

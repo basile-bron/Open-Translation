@@ -11,7 +11,7 @@ pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesse
 ```
 
 ## PSM reminder
-"""
+```
     Page segmentation modes:
       0    Orientation and script detection (OSD) only.
       1    Automatic page segmentation with OSD.
@@ -27,8 +27,7 @@ pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesse
     11    Sparse text. Find as much text as possible in no particular order.
     12    Sparse text with OSD.
     13    Raw line. Treat the image as a single text line,
-"""
-
+```
 
 ## available languages at :
 https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html

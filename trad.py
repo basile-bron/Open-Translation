@@ -1,6 +1,5 @@
 import sys
 import cv2
-
 import os
 import re
 import math
@@ -289,7 +288,7 @@ def get_blurbs(img, input_language):
       text = pytesseract.image_to_string(pil_image, lang=input_language, config=get_params())
       text = text.replace("\n", "")
       text = text.replace("\x0c", "")
-      print(text)
+      #print(text)
       #Non UTF8 cleaner
       """
       if text and text.strip():
@@ -364,8 +363,21 @@ if __name__ == "__main__":
   print(f"Input language: {input_language}")
   print(f"Output language: {output_language}")
 
-  images  = load_images_from_folder(input_folder)
-  names = load_names_from_folder(input_folder)
+  # Check if input_folder is a folder or a single image file
+  if os.path.isdir(input_folder):
+      # Load images from the folder
+      images = load_images_from_folder(input_folder)
+      names = load_names_from_folder(input_folder)
+  elif os.path.isfile(input_folder):
+      # Input is a single image file
+      img = cv2.imread(os.path.join(input_folder))
+      if img is not None:
+        images = [cv2.resize(img,(800,1000))]
+      names = [os.path.basename(input_folder)]
+  else:
+      print("Input folder or file not found.")
+      exit(1)
+
   transImg = []
   i = 0
   b = 0
@@ -388,3 +400,10 @@ if __name__ == "__main__":
 
   print('Number of translated blurb:' + str(b))
   print('Number of translated pages:' + str(i))
+
+
+
+
+
+
+  

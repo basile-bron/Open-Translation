@@ -10,6 +10,7 @@ from googletrans import Translator
 translator = Translator()
 from PIL import Image, ImageFont, ImageDraw
 import textwrap
+import logging
 pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
 
 class Blurb(object):
@@ -170,7 +171,7 @@ def typeset_blurb(img, blurb, transparency):
         if fontsize < 12:
             fontsize = 12
 
-        usingFont = ImageFont.truetype("Arial.ttf", fontsize)
+        usingFont = ImageFont.truetype("C:/Users/Skull/Documents/github/Open-Translation/Arial.ttf", fontsize)
 
         # Split the text into lines with word wrap
         lines = textwrap.wrap(text, width=20)  # Adjust the width as needed
@@ -331,7 +332,23 @@ def load_names_from_folder(folder):
 
     return names
 
+# Configure logging as mentioned in the previous answer
+def log_exception(exc_type, exc_value, exc_traceback):
+  # Log the exception with the custom log level "ANY"
+  logging.log(100, "An exception occurred", exc_info=(exc_type, exc_value, exc_traceback))
+
+# Set the custom exception handler
+sys.excepthook = log_exception
+
 if __name__ == "__main__":
+
+  logging.basicConfig(
+    level=logging.INFO,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    filename='trad.log',  # Specify a log file
+    format='%(asctime)s [%(levelname)s]: %(message)s',  # Define the log message format
+    datefmt='%Y-%m-%d %H:%M:%S'  # Define the date format
+  )
+
   # Initialize parser
   parser = argparse.ArgumentParser(description="Your script description here")
 
@@ -344,7 +361,7 @@ if __name__ == "__main__":
   # Add optional arguments with default values
   parser.add_argument("-if", "--input_folder", help="Input folder path", default="./original")
   parser.add_argument("-of", "--output_folder", help="Output folder path", default="./translated")
-  parser.add_argument("-t", "--transparency", help="Transparency (between 1 and 255)", type=int, default=128)
+  parser.add_argument("-t", "--transparency", help="Transparency (between 1 and 255)", type=int, default=200)
 
   # Parse the command line arguments
   args = parser.parse_args()
@@ -357,11 +374,13 @@ if __name__ == "__main__":
   output_language = args.output_language
 
   # Now you can use these values in your script
-  print(f"Input folder path: {input_folder}")
-  print(f"Output folder path: {output_folder}")
-  print(f"Transparency: {transparency}")
-  print(f"Input language: {input_language}")
-  print(f"Output language: {output_language}")
+  logging.info("Input folder path: %s", input_folder)
+  logging.info("Output folder path: %s", output_folder)
+  logging.info("Transparency: %s", transparency)
+  logging.info("Input language: %s", input_language)
+  logging.info("Output language: %s", output_language)
+
+
 
   # Check if input_folder is a folder or a single image file
   if os.path.isdir(input_folder):
@@ -375,8 +394,16 @@ if __name__ == "__main__":
         images = [cv2.resize(img,(800,1000))]
       names = [os.path.basename(input_folder)]
   else:
-      print("Input folder or file not found.")
+      logging.error("Input folder or file not found.")
       exit(1)
+
+  # Check if the folder exists
+  if not os.path.exists(output_folder):
+      # If it doesn't exist, create it
+      os.makedirs(output_folder)
+      print(f"Folder '{output_folder}' created successfully.")
+  else:
+      print(f"Folder '{output_folder}' already exists.")
 
   transImg = []
   i = 0
@@ -394,16 +421,9 @@ if __name__ == "__main__":
       trans = needTransImg
 
     save_file = os.path.join(output_folder,str(i) + '.jpg')
-    print(save_file)
+    logging.info(save_file)
     trans.save(save_file, format='JPEG')
     i = i+1
 
   print('Number of translated blurb:' + str(b))
   print('Number of translated pages:' + str(i))
-
-
-
-
-
-
-  

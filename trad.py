@@ -6,11 +6,14 @@ import math
 import argparse
 import numpy as np
 import pytesseract
-from googletrans import Translator
-translator = Translator()
+#from googletrans import Translator
+#translator = Translator()
 from PIL import Image, ImageFont, ImageDraw
 import textwrap
 import logging
+import json
+from translate import Translator
+
 pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
 
 class Blurb(object):
@@ -93,7 +96,7 @@ class TranslatedBlurb(Blurb):
       """
       return cls(parent.x, parent.y, parent.w, parent.h, parent.text, parent.confidence, translation)
 
-def translate_blurb(blurb, language):
+def translate_blurb(blurb):
     """
     Translate the text content of a Blurb object to English and create a TranslatedBlurb object.
 
@@ -104,9 +107,8 @@ def translate_blurb(blurb, language):
         blurb (Blurb): The Blurb object translated.
     """
 
-    translated_text = translator.translate(blurb.clean_text(), dest=language)
-
-    translation = translated_text.text.encode('utf-8', 'ignore')
+    translated_text = translator.translate(blurb.clean_text())
+    translation = translated_text.encode('utf-8', 'ignore')
 
     return TranslatedBlurb.as_translated(blurb, translation)
 
@@ -266,7 +268,6 @@ def get_blurbs(img, input_language):
     if area > 1000 and area < ((height / 3) * (width / 3)):
       draw_mask = cv2.cvtColor(np.zeros_like(img), cv2.COLOR_BGR2GRAY)
       approx = cv2.approxPolyDP(cnt,0.01*cv2.arcLength(cnt,True),True)
-      #pickle.dump(approx, open("approx.pkl", mode="w"))
       cv2.fillPoly(draw_mask, [approx], (255,0,0))
       cv2.fillPoly(final_mask, [approx], (255,0,0))
       image = cv2.bitwise_and(draw_mask, cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
@@ -341,9 +342,10 @@ def log_exception(exc_type, exc_value, exc_traceback):
 sys.excepthook = log_exception
 
 if __name__ == "__main__":
+  #str = str.encode('utf-8', errors='ignore').decode('utf-8')
 
   logging.basicConfig(
-    level=logging.INFO,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level=logging.DEBUG,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     filename='trad.log',  # Specify a log file
     format='%(asctime)s [%(levelname)s]: %(message)s',  # Define the log message format
     datefmt='%Y-%m-%d %H:%M:%S'  # Define the date format
@@ -362,6 +364,7 @@ if __name__ == "__main__":
   parser.add_argument("-if", "--input_folder", help="Input folder path", default="./original")
   parser.add_argument("-of", "--output_folder", help="Output folder path", default="./translated")
   parser.add_argument("-t", "--transparency", help="Transparency (between 1 and 255)", type=int, default=200)
+  parser.add_argument("-j", "--json", help="return only the translated text", type=bool, default=True)
 
   # Parse the command line arguments
   args = parser.parse_args()
@@ -372,6 +375,7 @@ if __name__ == "__main__":
   transparency = args.transparency
   input_language = args.input_language
   output_language = args.output_language
+  output_json = args.json
 
   # Now you can use these values in your script
   logging.info("Input folder path: %s", input_folder)
@@ -379,8 +383,7 @@ if __name__ == "__main__":
   logging.info("Transparency: %s", transparency)
   logging.info("Input language: %s", input_language)
   logging.info("Output language: %s", output_language)
-
-
+  logging.info("output in json: %s", output_json)
 
   # Check if input_folder is a folder or a single image file
   if os.path.isdir(input_folder):
@@ -401,29 +404,77 @@ if __name__ == "__main__":
   if not os.path.exists(output_folder):
       # If it doesn't exist, create it
       os.makedirs(output_folder)
-      print(f"Folder '{output_folder}' created successfully.")
-  else:
-      print(f"Folder '{output_folder}' already exists.")
 
-  transImg = []
+  # Check if the output JSON file already exists
+  output_json_file = os.path.join(output_folder, "translations.json")
+  translations = {}
+
+  if os.path.exists(output_json_file):
+      # If the JSON file exists, load its contents into the translations dictionary
+      with open(output_json_file, "r", encoding="utf-8") as json_file:
+        try:
+          translations = json.load(json_file)
+        except :
+           pass
   i = 0
   b = 0
+
+  # Initialize the translator for Japanese to French (or your desired target language)
+  translator = Translator(from_lang='ja', to_lang=output_language)
 
   for img in images:
     blurbs = get_blurbs(img, input_language)
     needTransImg = Image.fromarray(img.copy())
 
     for blurb in blurbs:
-      b = b + 1
-      #try:
-      translated = translate_blurb(blurb, output_language)
+      logging.debug("blurb number : %s", b)
+      logging.debug("out of : %s", len(blurbs))
+
+      b += 1
+      if output_json:
+        # Translate the blurb and store the translation information in the dictionary
+        translated = translate_blurb(blurb)
+        translation_info = {
+            "x": translated.x,
+            "y": translated.y,
+            "w": translated.w,
+            "h": translated.h,
+            #"confidence": translated.confidence,
+            #"original_text": blurb.text,
+            "translated_text": translated.translation.decode("utf-8", 'ignore')
+        }
+
+        # Use the image filename as a unique key for each image in the translations dictionary
+        image_filename = names[i]
+        if image_filename not in translations:
+          translations[image_filename] = []
+
+        translations[image_filename].append(translation_info)
+        
+      else:
+        typeset_blurb(needTransImg, translated, transparency)
+        trans = needTransImg
+
       typeset_blurb(needTransImg, translated, transparency)
       trans = needTransImg
 
-    save_file = os.path.join(output_folder,str(i) + '.jpg')
-    logging.info(save_file)
-    trans.save(save_file, format='JPEG')
-    i = i+1
+    if output_json:
+      # Save the updated translations to the JSON file
+      with open(output_json_file, "w", encoding="utf-8") as json_file:
+        logging.info(translations)
+        try:
+          # Attempt to serialize the translation_info to JSON
+          json.dump(str(translations), json_file, ensure_ascii=False, indent=4)
+        except Exception as e:
+          # Handle the exception, print debugging information, or remove the problematic data
+          logging.info(str(e))
 
+    else:
+      # Save the translated image with the image filename as the name
+      save_file = os.path.join(output_folder, str(i) + '.jpg')
+      logging.info(save_file)
+      trans.save(save_file, format='JPEG')
+    i += 1
+    
   print('Number of translated blurb:' + str(b))
   print('Number of translated pages:' + str(i))

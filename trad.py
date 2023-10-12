@@ -29,8 +29,6 @@ else:
   from translate import Translator
   translator= Translator(to_lang="english")
 
-pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-
 class Blurb(object):
     def __init__(self, x, y, w, h, text, confidence=100.0):
       """
@@ -124,7 +122,7 @@ class TranslatedBlurb(Blurb):
       """
       return cls(parent.x, parent.y, parent.w, parent.h, parent.text, parent.confidence, translation)
 
-def translate_blurb(blurb):
+def translate_blurb(blurb, output_language):
     """
     Translate the text content of a Blurb object to English and create a TranslatedBlurb object.
 
@@ -137,7 +135,7 @@ def translate_blurb(blurb):
     
     try:
       if googletrans:
-        translated_text = translator.translate(blurb.clean_text(), dest='en')
+        translated_text = translator.translate(blurb.clean_text(), dest=output_language)
         translation = translated_text.text.encode('utf-8', 'ignore')
       else:
         translated_text = translator.translate(blurb.clean_text())
@@ -234,9 +232,9 @@ def typeset_blurb(img, blurb, transparency :int):
             text_coords = (blurb.x, box_y)
             d.text(text_coords, line, fill=(0, 0, 0), font=usingFont, encoding='utf-8')
 
-def get_params():
+def get_params(mode):
     params = ""
-    params += "--psm 5"
+    params += "--psm " + str(mode)
 
     configParams = []
     def configParam(param, val):
@@ -253,7 +251,7 @@ def get_params():
     params += " ".join([configParam(p[0], p[1]) for p in configParams])
     return params
 
-def get_blurbs(img, input_language):
+def get_blurbs(img, input_language, ocr_mode):
 
   # Convert the input image to grayscale
   img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -323,7 +321,7 @@ def get_blurbs(img, input_language):
       pil_image = Image.fromarray(image)
 
       #OCR recognition
-      text = pytesseract.image_to_string(pil_image, lang=input_language, config=get_params())
+      text = pytesseract.image_to_string(pil_image, lang=input_language, config=get_params(ocr_mode))
       text = text.replace("\n", "")
       text = text.replace("\x0c", "")      
       if text and text.strip() and text != None:
@@ -346,7 +344,7 @@ def load_images_from_folder(folder):
     resize_optimisation = False
     #for filename in os.listdir(folder):
     # List of valid image file extensions
-    valid_image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp']
+    valid_image_extensions = ['.jpg', '.jpeg', '.png','.JPG','.JPEG',]
 
     # Iterate through files in the folder
     for filename in os.listdir(folder):
@@ -434,14 +432,13 @@ def main():
   else:
       # Default to 'eng' (English) if the input doesn't match any alias
       input_language = 'jpn_vert'
-
+  
+  ocr_mode = 5
+  if 'vert' not in input_language:
+    ocr_mode = 6
+     
   # Now you can use these values in your script
-  logging.info("Input folder path: %s", input_folder)
-  logging.info("Output folder path: %s", output_folder)
-  logging.info("Transparency: %s", transparency)
-  logging.info("Input language: %s", input_language)
-  logging.info("Output language: %s", output_language)
-  logging.info("output in json: %s", output_json)
+  logging.info("arguments : -if: "+ str(input_folder) + " -of: "+ str(output_folder) + " -t: "+ str(transparency) + " i: " + str(input_language) + " o: "+ str(output_language) + " json: "+ str(output_json))
 
   # Check if input_folder is a folder or a single image file
   if os.path.isdir(input_folder):
@@ -483,8 +480,8 @@ def main():
     image_filename = names[i]
     
     # Check if already translated
-    if image_filename not in translations:
-      blurbs, height, width = get_blurbs(img, input_language)
+    if 'text_'+ str(output_language) not in translations.get(image_filename, {}):
+      blurbs, height, width = get_blurbs(img, input_language, ocr_mode)
 
       for blurb in blurbs:
         logging.debug("blurb number : %s", b)
@@ -493,18 +490,22 @@ def main():
         b += 1
         if output_json:
           # Translate the blurb and store the translation information in the dictionary
-          translated = translate_blurb(blurb)
+          translated = translate_blurb(blurb, output_language)
           text = clean_trans_output(str(translated.translation.decode("utf-8", 'ignore')))
           if translated.translation != '' and len(text.split()) > 3:
             translation_info = {
+                #IMPORTANT :
+                # cords and sizes are a ratio not a pixel size
+                # i.e  height 0.5 is a buble of half of the height of the original image
+                # it allows you to render the translation on any size and scale of the original image
                 "x": round(float(translated.x / width), 2),
                 "y": round(float(translated.y / height), 2),
                 "w": round(float(translated.w / width), 2),
                 "h": round(float(translated.h / height), 2),
                 #"confidence": translated.confidence,
-                #"original_text": str(blurb.text),
-                "translated_text": text,
-                "num_char": len(text)
+                "original_text": str(blurb.text),
+                "text_"+ str(output_language): text,
+                "font_size_"+ str(output_language): round(math.sqrt( (translated.w * translated.h) / len(text) ))
             }
 
             # Use the image filename as a unique key for each image in the translations dictionary
@@ -535,10 +536,9 @@ def main():
         save_file = os.path.join(output_folder, str(i) + '.jpg')
         logging.info(save_file)
         trans.save(save_file, format='JPEG')
+    else:
+      logging.info('Already translated: '+ image_filename)
     i += 1
-    
-    logging.debug('Already translated: '+ image_filename)
-
 
   print('Number of translated blurb:' + str(b))
   print('Number of translated pages:' + str(i))
@@ -556,6 +556,9 @@ if __name__ == "__main__":
 
   # Set the custom exception handler
   sys.excepthook = log_exception
+  
+  # edit the path of tesseract to yours:
+  pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 
   main()
   #cProfile.run('main()')

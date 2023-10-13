@@ -30,7 +30,7 @@ else:
   translator= Translator(to_lang="english")
 
 class Blurb(object):
-    def __init__(self, x, y, w, h, text, confidence=100.0):
+    def __init__(self, x, y, w, h, text):
       """
       Initialize a Blurb object.
 
@@ -40,15 +40,12 @@ class Blurb(object):
           w (int): Width of the region.
           h (int): Height of the region.
           text (str): The actual text content within the region.
-          confidence (float, optional): Confidence level of the OCR system in recognizing the text content.
-                                        Defaults to 100.0.
       """
       self.x = x
       self.y = y
       self.w = w
       self.h = h
       self.text = text
-      self.confidence = confidence
 
     def clean_text(self):
       text = self.text
@@ -72,9 +69,9 @@ class Blurb(object):
       Return a string representation of the Blurb object.
 
       Returns:
-          str: The string representation in the format: "x,y w x h confidence%: text".
+          str: The string representation in the format: "x,y w x h : text".
       """
-      return str(self.x) + ',' + str(self.y) + ' ' + str(self.w) + 'x' + str(self.h) + ' ' + str(self.confidence) + '% :' + self.text
+      return str(self.x) + ',' + str(self.y) + ' ' + str(self.w) + 'x' + str(self.h) + ' ' + self.text
 
 def clean_trans_output(text):
 
@@ -92,7 +89,7 @@ def clean_trans_output(text):
   return text
 
 class TranslatedBlurb(Blurb):
-    def __init__(self, x, y, w, h, text, confidence, translation):
+    def __init__(self, x, y, w, h, text, translation):
       """
       Initialize a TranslatedBlurb object.
 
@@ -102,10 +99,9 @@ class TranslatedBlurb(Blurb):
           w (int): Width of the region.
           h (int): Height of the region.
           text (str): The actual text content within the region.
-          confidence (float): Confidence level of the OCR system in recognizing the text content.
           translation (str): The translated text.
       """
-      Blurb.__init__(self, x, y, w, h, text, confidence)
+      Blurb.__init__(self, x, y, w, h, text)
       self.translation = translation
 
     @classmethod
@@ -120,7 +116,7 @@ class TranslatedBlurb(Blurb):
       Returns:
           TranslatedBlurb: The new TranslatedBlurb object.
       """
-      return cls(parent.x, parent.y, parent.w, parent.h, parent.text, parent.confidence, translation)
+      return cls(parent.x, parent.y, parent.w, parent.h, parent.text, translation)
 
 def translate_blurb(blurb, output_language):
     """
@@ -372,12 +368,6 @@ def log_exception(exc_type, exc_value, exc_traceback):
   # Log the exception with the custom log level "ANY"
   logging.log(100, "An exception occurred", exc_info=(exc_type, exc_value, exc_traceback))
 
-
-
-
-
-
-
 def main():
 
   logging.debug('Script starting')
@@ -479,63 +469,69 @@ def main():
   for img in images:
     image_filename = names[i]
     
-    # Check if already translated
+    # don't translate if already translated in the requested language
     if 'text_'+ str(output_language) not in translations.get(image_filename, {}):
-      blurbs, height, width = get_blurbs(img, input_language, ocr_mode)
-
-      for blurb in blurbs:
-        logging.debug("blurb number : %s", b)
-        logging.debug("out of : %s", len(blurbs))
-
-        b += 1
-        if output_json:
-          # Translate the blurb and store the translation information in the dictionary
-          translated = translate_blurb(blurb, output_language)
-          text = clean_trans_output(str(translated.translation.decode("utf-8", 'ignore')))
-          if translated.translation != '' and len(text.split()) > 3:
-            translation_info = {
-                #IMPORTANT :
-                # cords and sizes are a ratio not a pixel size
-                # i.e  height 0.5 is a buble of half of the height of the original image
-                # it allows you to render the translation on any size and scale of the original image
-                "x": round(float(translated.x / width), 2),
-                "y": round(float(translated.y / height), 2),
-                "w": round(float(translated.w / width), 2),
-                "h": round(float(translated.h / height), 2),
-                #"confidence": translated.confidence,
-                "original_text": str(blurb.text),
-                "text_"+ str(output_language): text,
-                "font_size_"+ str(output_language): round(math.sqrt( (translated.w * translated.h) / len(text) ))
-            }
-
-            # Use the image filename as a unique key for each image in the translations dictionary
-            if image_filename not in translations:
-              try:
-                translations[image_filename] = []
-              except:
-                translations[image_filename] = translation_info
-                
-            translations[image_filename].append(translation_info)
-        else:
-          needTransImg = Image.fromarray(img.copy())
-          typeset_blurb(needTransImg, translated, transparency)
-          trans = needTransImg
-
-      if output_json:
-        # Save the updated translations to the JSON file
-        with open(output_json_file, "w", encoding="utf-8") as json_file:
-          logging.debug(translations)
-          try:
-            # Attempt to serialize the translation_info to JSON
-            json.dump(translations, json_file, ensure_ascii=False, indent=4)
-          except Exception as e:
-            # Handle the exception, print debugging information, or remove the problematic data
-            logging.error(str(e))
+      
+      # ocr already output original text previously, just do a simple translation 
+      if 'original_text_debug' in translations.get(image_filename, {}):
+        logging.debug("simple translation")
+        # TO DO
       else:
-        # Save the translated image with the image filename as the name
-        save_file = os.path.join(output_folder, str(i) + '.jpg')
-        logging.info(save_file)
-        trans.save(save_file, format='JPEG')
+        logging.debug("full translation")
+
+        blurbs, height, width = get_blurbs(img, input_language, ocr_mode)
+
+        for blurb in blurbs:
+          logging.debug("blurb number : %s", b)
+          logging.debug("out of : %s", len(blurbs))
+
+          b += 1
+          if output_json:
+            # Translate the blurb and store the translation information in the dictionary
+            translated = translate_blurb(blurb, output_language)
+            text = clean_trans_output(str(translated.translation.decode("utf-8", 'ignore')))
+            if translated.translation != '' and len(text.split()) > 3:
+              #if meta already collected
+              #if str(blurb.text) in translations.get(image_filename, {}):
+              
+              translation_info = {
+                  "x": round(float(translated.x / width), 2),
+                  "y": round(float(translated.y / height), 2),
+                  "w": round(float(translated.w / width), 2),
+                  "h": round(float(translated.h / height), 2),
+                  "original_text": str(blurb.text),
+                  "text_"+ str(output_language): text,
+                  "font_size_"+ str(output_language): round(math.sqrt( (translated.w * translated.h) / len(text) ))
+              }
+
+              # Use the image filename as a unique key for each image in the translations dictionary
+              if image_filename not in translations:
+                try:
+                  translations[image_filename] = []
+                except:
+                  translations[image_filename] = translation_info
+                  
+              translations[image_filename].append(translation_info)
+          else:
+            needTransImg = Image.fromarray(img.copy())
+            typeset_blurb(needTransImg, translated, transparency)
+            trans = needTransImg
+
+        if output_json:
+          # Save the updated translations to the JSON file
+          with open(output_json_file, "w", encoding="utf-8") as json_file:
+            logging.debug(translations)
+            try:
+              # Attempt to serialize the translation_info to JSON
+              json.dump(translations, json_file, ensure_ascii=False, indent=4)
+            except Exception as e:
+              # Handle the exception, print debugging information, or remove the problematic data
+              logging.error(str(e))
+        else:
+          # Save the translated image with the image filename as the name
+          save_file = os.path.join(output_folder, str(i) + '.jpg')
+          logging.info(save_file)
+          trans.save(save_file, format='JPEG')
     else:
       logging.info('Already translated: '+ image_filename)
     i += 1
@@ -561,4 +557,5 @@ if __name__ == "__main__":
   pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 
   main()
+  # to uncomment for benchmark and optimisation review
   #cProfile.run('main()')

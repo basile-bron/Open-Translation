@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pillow "==9.5.0"
 pytesseract = "*"
 googletrans = "==4.0.0-rc1"
 Pillow = "==9.5.0"

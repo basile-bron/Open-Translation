@@ -1,5 +1,7 @@
 # Open-Translation
 
+![banner](banner_github.jpg)
+
 ## installation
 
 ### Download Tesseract here :
@@ -9,6 +11,10 @@ https://github.com/UB-Mannheim/tesseract/wiki
 ### Edit the path of tesseract in the script:
 ```
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
+```
+
+```
+pipenv install
 ```
 
 ## Command line

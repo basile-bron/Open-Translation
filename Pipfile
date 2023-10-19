@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 pytesseract = "*"
 googletrans = "==4.0.0-rc1"
-Pillow = "==9.5.0"
+Pillow = ">=10.0.1"
 google_trans_new = "*"
 deep-translator = "*"
 opencv-python = "*"

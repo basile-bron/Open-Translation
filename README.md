@@ -2,6 +2,10 @@
 
 ![banner](banner_github.jpg)
 
+## About
+
+Manga page translation. get a translated image or a json conataining the dialogue output with it size and location.
+
 ## installation
 
 ### Download Tesseract here :

@@ -6,7 +6,11 @@
 
 Manga page translation. get a translated image or a json conataining the dialogue output with it size and location.
 
-## installation
+## Installation
+
+```
+pipenv install
+```
 
 ### Download Tesseract here :
 https://github.com/UB-Mannheim/tesseract/wiki
@@ -16,9 +20,34 @@ https://github.com/UB-Mannheim/tesseract/wiki
 ```
 pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
 ```
+### Download the tesseract languages required
 
+replace 'LANG' with the language you need. for example jpn_vert for japanese vertical text. 
+
+You can list all available language:
 ```
-pipenv install
+tesseract --list-langs
+```
+or manualy download them at :
+
+https://github.com/tesseract-ocr/tessdata_best
+
+
+
+#### Linux :
+```
+apt-get install tesseract-ocr-LANG
+```
+
+#### Windows :
+```
+cd YOUR/TESSERACT/PATH/Tesseract-OCR/tessdata
+curl -LO https://github.com/tesseract-ocr/tessdata_best/LANG.traineddata
+```
+#### Mac :
+In mac you can just install all languages like so:
+```
+brew install tesseract-lang
 ```
 
 ## Command line
@@ -45,10 +74,11 @@ options:
   -j JSON, --json JSON  return only the translated text
 ```
 
-### example
+### Example
 ```
 & C:/Python310/python.exe ./trad.py  -i 'jpn_vert' -if "./original/001.jpg"
 ```
+____
 
 ## Additionnal informations
 
@@ -64,8 +94,6 @@ options:
   "text_fr"
   "font_size_fr
   ```
-
-
 
   Cords and sizes are a ratio not a pixel size.
   i.e  height 0.5 is a buble of half of the height of the original image.
@@ -90,5 +118,5 @@ options:
     13    Raw line. Treat the image as a single text line,
 ```
 
-## available languages at :
+## Available languages at :
 https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html

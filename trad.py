@@ -376,7 +376,7 @@ def main():
   parser = argparse.ArgumentParser(description="Your script description here")
 
   # Add required argument for input language
-  parser.add_argument("-i", "--input_language", help="Input language ('jpn_vert' for Japanese vertical) more at: https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html", default='jpn_vert')
+  parser.add_argument("-i", "--input_language", help="Input language ('jpn_vert' for Japanese vertical) more at: https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html", default='toto')
   parser.add_argument("-o", "--output_language", help="Output language ('en' by default)",type=str, default='en')
   parser.add_argument("-if", "--input_folder", help="Input folder path", default="./original")
   parser.add_argument("-of", "--output_folder", help="Output folder path", default="./translated")
@@ -394,7 +394,7 @@ def main():
   except Exception as e:
     logging.error(f"An error occurred while parsing arguments: {e}")
 
-    
+  
   # Access the values of the arguments
   input_folder = args.input_folder
   output_folder = args.output_folder
@@ -410,6 +410,10 @@ def main():
       'china': 'chi_sim_vert',
       'japanese': 'jpn_vert',
       'japan': 'jpn_vert',
+      'english': 'eng',
+      'en': 'eng',
+      'korean': 'kor',
+      'spanish': 'spa',
       # Add more aliases and language codes as needed
   }
 

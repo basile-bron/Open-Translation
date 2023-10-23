@@ -376,7 +376,7 @@ def main():
   parser = argparse.ArgumentParser(description="Your script description here")
 
   # Add required argument for input language
-  parser.add_argument("-i", "--input_language", help="Input language ('jpn_vert' for Japanese vertical) more at: https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html", default='toto')
+  parser.add_argument("-i", "--input_language", help="Input language ('jpn_vert' for Japanese vertical) more at: https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html", default='jpn_vert')
   parser.add_argument("-o", "--output_language", help="Output language ('en' by default)",type=str, default='en')
   parser.add_argument("-if", "--input_folder", help="Input folder path", default="./original")
   parser.add_argument("-of", "--output_folder", help="Output folder path", default="./translated")
@@ -473,13 +473,50 @@ def main():
   for img in images:
     image_filename = names[i]
     
+    logging.debug('text_'+ str(output_language) not in translations.get(image_filename, {}))
+    
     # don't translate if already translated in the requested language
-    if 'text_'+ str(output_language) not in translations.get(image_filename, {}):
-      
+    if 'text_'+ str(output_language) not in str(translations.get(image_filename, {})):
+
       # ocr already output original text previously, just do a simple translation 
-      if 'original_text_debug' in translations.get(image_filename, {}):
+      if 'original_text' in str(translations.get(image_filename, {})):
         logging.debug("simple translation")
-        # TO DO
+        for a in range(0, len(translations[names[i]])-1):
+
+          #get the original text that is already referenced in the json
+          original_text =  translations[image_filename][a]["original_text_"+ str(input_language)]
+          logging.debug("orignial text : "+ str(original_text))
+
+          # translate it directly
+          try:
+            if googletrans:
+              translated_text = translator.translate(original_text, dest=output_language)
+              translation = translated_text.text.encode('utf-8', 'ignore')
+            else:
+              translated_text = translator.translate(original_text)
+              translation = translated_text.encode('utf-8', 'ignore')
+          except Exception as e:
+            logging.error(e)
+            logging.error(blurb.clean_text())
+            translation = ''
+
+          text = clean_trans_output(str(translation.decode("utf-8", 'ignore')))
+          logging.debug("translated text : "+ str(text))
+
+          #Add a new translation
+          translations[image_filename][a]["text_"+ str(output_language)] = text
+          # Save the updated translations to the JSON file
+          with open(output_json_file, "w", encoding="utf-8") as json_file:
+            logging.debug(translations)
+            try:
+              # Attempt to serialize the translation_info to JSON
+              json.dump(translations, json_file, ensure_ascii=False, indent=4)
+            except Exception as e:
+              # Handle the exception, print debugging information, or remove the problematic data
+              logging.error(str(e))
+
+
+
       else:
         logging.debug("full translation")
 
@@ -503,7 +540,7 @@ def main():
                   "y": round(float(translated.y / height), 2),
                   "w": round(float(translated.w / width), 2),
                   "h": round(float(translated.h / height), 2),
-                  "original_text": str(blurb.text),
+                  "original_text_"+ str(input_language): str(blurb.text),
                   "text_"+ str(output_language): text,
                   "font_size_"+ str(output_language): round(math.sqrt( (translated.w * translated.h) / len(text) ))
               }

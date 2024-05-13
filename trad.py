@@ -11,16 +11,71 @@ import textwrap
 import logging
 import json
 import cProfile
-
+import requests
 
 #install new llanguage documentation:
 #https://ocrmypdf.readthedocs.io/en/latest/languages.html
 #example :  
 #cd C:\Program Files\Tesseract-OCR\tessdata
 #curl -o chi_sim.traineddata https://github.com/tesseract-ocr/tessdata/raw/main/chi_sim.traineddata
- 
 
-googletrans = True
+
+# groq_translation.py
+import json
+from typing import Optional
+
+from pydantic import BaseModel
+
+import os
+from groq import Groq
+
+# Model for the translation
+class Translation(BaseModel):
+    text: str
+    comments: Optional[str] = None
+
+
+
+client = Groq(
+    api_key=os.environ.get("GROQ_API_KEY"),
+)
+#alternative whitout Groq library callin on the groq api :
+
+
+
+
+
+
+def groq_translate(query, to_language):
+
+  chat_completion = client.chat.completions.create(
+      messages=[
+              {
+                  "role": "system",
+                  "content": f"You are a helpful assistant that translates text from it's source language to {to_language}."
+                            f"You will only reply with the translation text and nothing else in JSON."
+                            f" The JSON object must use the schema: {json.dumps(Translation.model_json_schema(), indent=2)}",
+              },
+              {
+                  "role": "user",
+                  "content": f"Translate '{query}' to {to_language}."
+              }
+          ],
+          model="mixtral-8x7b-32768",
+          temperature=0.2,
+          max_tokens=1024,
+          stream=False,
+          response_format={"type": "json_object"},
+  )
+
+  print(chat_completion.choices[0].message.content)
+  return Translation.model_validate_json(chat_completion.choices[0].message.content)
+
+
+
+
+googletrans = False
+API_trans = True
 if googletrans:
   from googletrans import Translator
   translator = Translator()
@@ -118,6 +173,9 @@ class TranslatedBlurb(Blurb):
       """
       return cls(parent.x, parent.y, parent.w, parent.h, parent.text, translation)
 
+
+
+
 def translate_blurb(blurb, output_language):
     """
     Translate the text content of a Blurb object to English and create a TranslatedBlurb object.
@@ -130,6 +188,9 @@ def translate_blurb(blurb, output_language):
     """
     
     try:
+      if API_trans:
+        translation = groq_translate(blurb.clean_text(), output_language)
+
       if googletrans:
         translated_text = translator.translate(blurb.clean_text(), dest=output_language)
         translation = translated_text.text.encode('utf-8', 'ignore')

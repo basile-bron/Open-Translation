@@ -13,6 +13,25 @@ import json
 import cProfile
 
 
+import re
+import unicodedata
+
+def remove_special_characters(text):
+    # First, let's normalize the text to ensure consistency
+    text = unicodedata.normalize('NFC', text)
+
+    # This pattern will match any character that is not a letter, a number, or a whitespace
+    # \u3040-\u309f, \uac00-\ud7af, \u4e00-\u9fff are the unicode ranges for Japanese, Korean and Chinese characters respectively
+    pattern = r'[^\w\s\u3040-\u309f\uac00-\ud7af\u4e00-\u9fff]'
+
+    # Now, let's remove the special characters
+    cleaned_text = re.sub(pattern, '', text)
+
+    return cleaned_text
+
+
+
+
 #install new llanguage documentation:
 #https://ocrmypdf.readthedocs.io/en/latest/languages.html
 #example :  
@@ -29,7 +48,7 @@ use_groq_api = True
 #  from translate import Translator
 #  translator= Translator(to_lang="english")
 
-from groqito import groq_translate  
+from groqito import groq_translate, groq_OCR_cleaner
 
 
 class Blurb(object):
@@ -57,6 +76,19 @@ class Blurb(object):
       #  for letter in text:
       #    if ord(letter) > 255:
       #        text = text.replace(letter, "")
+
+      # Define a regular expression pattern to allow only specific characters
+      #allowed_characters_pattern = re.compile(r'[a-zA-Z0-9., !?]+')
+      
+      # Keep only allowed characters by applying the regular expression pattern
+      #text = ''.join(allowed_characters_pattern.findall(text))
+
+      #text = re.sub(r'[^a-zA-Z0-9\s\'\\:_-]', '', text)
+
+      # Remove extra spaces and leading/trailing spaces
+      #text = text.strip()
+
+      # Remove new line characters
       text = re.sub(r"\n", "", text)
 
       # Define a regular expression pattern to allow only specific characters
@@ -77,17 +109,23 @@ class Blurb(object):
       return str(self.x) + ',' + str(self.y) + ' ' + str(self.w) + 'x' + str(self.h) + ' ' + self.text
 
 def clean_trans_output(text):
+  text = ' '.join(text.split())
+  
 
   #if text and text.strip():
   #  for letter in text:
   #    if ord(letter) > 255:
   #        text = text.replace(letter, "")
   # Remove special characters and symbols
-  text = re.sub(r'[^a-zA-Z0-9\s\'-]', '', text)
+  #text = re.sub(r'[^a-zA-Z0-9\s\'-]', '', text)
 
   # Remove extra spaces and leading/trailing spaces
-  text = ' '.join(text.split())
+  
+  if "tradu" in text:
+     text = ''
 
+  if "Transl" in text:
+     text = ''
 
   return text
 
@@ -135,7 +173,7 @@ def translate_blurb(blurb, output_language):
     try:
       if use_groq_api:
         translation = groq_translate( blurb.clean_text(), output_language)
-        translation = translation.text.encode('utf-8', 'ignore')
+        translation = translation.text.encode('utf-16', 'ignore')
         logging.info(translation)
 
       #if googletrans:
@@ -203,6 +241,8 @@ def typeset_blurb(img, blurb, transparency :int):
         if isinstance(text, bytes):
             text = str(text.decode("utf-8", 'ignore'))
 
+
+    text = remove_special_characters(text)
     # Check if there are exactly three words
     if len(text.split()) > 4:
         area = blurb.w * blurb.h
@@ -234,7 +274,7 @@ def typeset_blurb(img, blurb, transparency :int):
 
             # Draw the text on top of the white box
             text_coords = (blurb.x, box_y)
-            d.text(text_coords, line, fill=(0, 0, 0), font=usingFont, encoding='utf-8')
+            d.text(text_coords, line, fill=(0, 0, 0), font=usingFont, encoding='utf-16')
 
 def get_params(mode):
     params = ""
@@ -330,8 +370,8 @@ def get_blurbs(img, input_language, ocr_mode):
       text = text.replace("\x0c", "")      
       if text and text.strip() and text != None:
         #filter out noise under x characters
-        if len(text)>3:
-          blurb = Blurb(x, y, w, h, text)
+        if len(text)>4:
+          blurb = Blurb(x, y, w, h, groq_OCR_cleaner(text))
           #print(blurb)
           blurbs.append(blurb)
           #print ("Attempt: " + text + ' -> ' + str(translator.translate(text,dest='fr').text))
@@ -419,6 +459,7 @@ def main():
       'japanese': 'jpn_vert',
       'japan': 'jpn_vert',
       'english': 'eng',
+      'french': 'eng',
       'en': 'eng',
       'korean': 'kor',
       'spanish': 'spa',
@@ -469,7 +510,7 @@ def main():
 
   if os.path.exists(output_json_file):
       # If the JSON file exists, load its contents into the translations dictionary
-      with open(output_json_file, "r", encoding="utf-8") as json_file:
+      with open(output_json_file, "r", encoding="utf-16") as json_file:
         try:
           translations = json.load(json_file)
         except Exception as e:
@@ -499,15 +540,14 @@ def main():
           try:
             # if we use groq api
                
-
             if use_groq_api:
-              translation = groq_translate( blurb.clean_text(), output_language)
-              translation = translation.text.encode('utf-8', 'ignore')
+              translation = groq_translate(blurb.clean_text(), output_language)
+              translation = translation.text.encode('utf-16', 'ignore')
               
             #if we use google trad api
             #if googletrans:
             #  translated_text = translator.translate(original_text, dest=output_language)
-            #  translation = translated_text.text.encode('utf-8', 'ignore')
+            #  translation = translated_text.text.encode('utf-16', 'ignore')
             #else:
             #  translated_text = translator.translate(original_text)
             #  translation = translated_text.encode('utf-8', 'ignore')
@@ -516,13 +556,13 @@ def main():
             logging.error(blurb.clean_text())
             translation = ''
 
-          text = clean_trans_output(str(translation.decode("utf-8", 'ignore')))
+          text = clean_trans_output(str(translation.decode("utf-16", 'ignore')))
           logging.debug("translated text : "+ str(text))
 
           #Add a new translation
           translations[image_filename][a]["text_"+ str(output_language)] = text
           # Save the updated translations to the JSON file
-          with open(output_json_file, "w", encoding="utf-8") as json_file:
+          with open(output_json_file, "w", encoding="utf-16") as json_file:
             logging.debug(translations)
             try:
               # Attempt to serialize the translation_info to JSON
@@ -546,7 +586,7 @@ def main():
           if output_json:
             # Translate the blurb and store the translation information in the dictionary
             translated = translate_blurb(blurb, output_language)
-            text = clean_trans_output(str(translated.translation.decode("utf-8", 'ignore')))
+            text = clean_trans_output(str(translated.translation.decode("utf-16", 'ignore')))
             if translated.translation != '' and len(text.split()) > 3:
               #if meta already collected
               #if str(blurb.text) in translations.get(image_filename, {}):
@@ -576,7 +616,7 @@ def main():
 
         if output_json:
           # Save the updated translations to the JSON file
-          with open(output_json_file, "w", encoding="utf-8") as json_file:
+          with open(output_json_file, "w", encoding="utf-16") as json_file:
             logging.debug(translations)
             try:
               # Attempt to serialize the translation_info to JSON

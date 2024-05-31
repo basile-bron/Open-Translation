@@ -53,3 +53,32 @@ def groq_translate(query, to_language):
     return Translation.model_validate_json(chat_completion.choices[0].message.content)
 
 
+# Translate text using the Groq API
+def groq_OCR_cleaner(query):
+    # Print the query and target language
+    print(f"Cleaning OCR query : '{query}'")
+    
+    # Create a chat completion
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "system",
+                "content": f"You are a helpful assistant that clean a dirty OCR output text to a clean output no mater the language or noisy characters."
+                           f"You will only reply with the clean output text and nothing else in JSON."
+                           f" The JSON object must use the schema: {json.dumps(Translation.model_json_schema(), indent=2)}",
+            },
+            {
+                "role": "user",
+                "content": f"OCR Text Cleaning of '{query}' to a clean output."
+            }
+        ],
+        model="mixtral-8x7b-32768",
+        temperature=0.2,
+        max_tokens=1024,
+        stream=False,
+        response_format={"type": "json_object"},
+    )
+    # Print the translation
+    print(chat_completion.choices[0].message.content)
+    # Return the translated text
+    return Translation.model_validate_json(chat_completion.choices[0].message.content)

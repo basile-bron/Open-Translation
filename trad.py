@@ -19,15 +19,18 @@ import cProfile
 #cd C:\Program Files\Tesseract-OCR\tessdata
 #curl -o chi_sim.traineddata https://github.com/tesseract-ocr/tessdata/raw/main/chi_sim.traineddata
  
+use_groq_api = True
+#googletrans = False
+#if googletrans:
+#  from googletrans import Translator
+#  translator = Translator()
+#else:
+#  #to coment if googletrans
+#  from translate import Translator
+#  translator= Translator(to_lang="english")
 
-googletrans = True
-if googletrans:
-  from googletrans import Translator
-  translator = Translator()
-else:
-  #to coment if googletrans
-  from translate import Translator
-  translator= Translator(to_lang="english")
+from groqito import groq_translate  
+
 
 class Blurb(object):
     def __init__(self, x, y, w, h, text):
@@ -130,12 +133,17 @@ def translate_blurb(blurb, output_language):
     """
     
     try:
-      if googletrans:
-        translated_text = translator.translate(blurb.clean_text(), dest=output_language)
-        translation = translated_text.text.encode('utf-8', 'ignore')
-      else:
-        translated_text = translator.translate(blurb.clean_text())
-        translation = translated_text.encode('utf-8', 'ignore')
+      if use_groq_api:
+        translation = groq_translate( blurb.clean_text(), output_language)
+        translation = translation.text.encode('utf-8', 'ignore')
+        logging.info(translation)
+
+      #if googletrans:
+      #  translated_text = translator.translate(blurb.clean_text(), dest=output_language)
+      #  translation = translated_text.text.encode('utf-8', 'ignore')
+      #else:
+      #  translated_text = translator.translate(blurb.clean_text())
+      #  translation = translated_text.encode('utf-8', 'ignore')
 
     except Exception as e:
        logging.error(e)
@@ -489,12 +497,20 @@ def main():
 
           # translate it directly
           try:
-            if googletrans:
-              translated_text = translator.translate(original_text, dest=output_language)
-              translation = translated_text.text.encode('utf-8', 'ignore')
-            else:
-              translated_text = translator.translate(original_text)
-              translation = translated_text.encode('utf-8', 'ignore')
+            # if we use groq api
+               
+
+            if use_groq_api:
+              translation = groq_translate( blurb.clean_text(), output_language)
+              translation = translation.text.encode('utf-8', 'ignore')
+              
+            #if we use google trad api
+            #if googletrans:
+            #  translated_text = translator.translate(original_text, dest=output_language)
+            #  translation = translated_text.text.encode('utf-8', 'ignore')
+            #else:
+            #  translated_text = translator.translate(original_text)
+            #  translation = translated_text.encode('utf-8', 'ignore')
           except Exception as e:
             logging.error(e)
             logging.error(blurb.clean_text())

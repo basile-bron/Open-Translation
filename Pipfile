@@ -4,19 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pytesseract = "*"
-googletrans = "==4.0.0-rc1"
-Pillow = ">=10.0.1"
-google_trans_new = "*"
-deep-translator = "*"
+numpy = "*"
 opencv-python = "*"
-tesseract = "*"
+pytesseract = "==0.3.10"
+pillow = "==10.3.0"
 
 [dev-packages]
-tesseract-ocr-jpn = "*"
-tesseract-ocr-jpn-vert = "*"
-tesseract-ocr-kor = "*"
-tesseract-lang = "*"
 
 [requires]
 python_version = "3.10"

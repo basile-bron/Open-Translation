@@ -41,7 +41,7 @@ client = Groq(
 )
 #alternative whitout Groq library callin on the groq api :
 
-
+ 
 
 
 

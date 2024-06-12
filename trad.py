@@ -11,7 +11,7 @@ import textwrap
 import logging
 import json
 import cProfile
-
+from cleaner import clean_text_jp
 
 #install new llanguage documentation:
 #https://ocrmypdf.readthedocs.io/en/latest/languages.html
@@ -89,60 +89,62 @@ def clean_trans_output(text):
   return text
 
 class TranslatedBlurb(Blurb):
-    def __init__(self, x, y, w, h, text, translation):
-      """
-      Initialize a TranslatedBlurb object.
-
-      Args:
-          x (int): X-coordinate of the top-left corner of the region.
-          y (int): Y-coordinate of the top-left corner of the region.
-          w (int): Width of the region.
-          h (int): Height of the region.
-          text (str): The actual text content within the region.
-          translation (str): The translated text.
-      """
-      Blurb.__init__(self, x, y, w, h, text)
-      self.translation = translation
-
-    @classmethod
-    def as_translated(cls, parent, translation):
-      """
-      Create a new TranslatedBlurb object based on an existing Blurb object and a translation.
-
-      Args:
-          parent (Blurb): The parent Blurb object to inherit attributes from.
-          translation (str): The translated text.
-
-      Returns:
-          TranslatedBlurb: The new TranslatedBlurb object.
-      """
-      return cls(parent.x, parent.y, parent.w, parent.h, parent.text, translation)
-
-def translate_blurb(blurb, output_language):
+  def __init__(self, x, y, w, h, text, translation):
     """
-    Translate the text content of a Blurb object to English and create a TranslatedBlurb object.
+    Initialize a TranslatedBlurb object.
 
-      Args:
-          blurb (Blurb): The Blurb object to be translated.
-
-      Returns:
-        blurb (Blurb): The Blurb object translated.
+    Args:
+        x (int): X-coordinate of the top-left corner of the region.
+        y (int): Y-coordinate of the top-left corner of the region.
+        w (int): Width of the region.
+        h (int): Height of the region.
+        text (str): The actual text content within the region.
+        translation (str): The translated text.
     """
+    Blurb.__init__(self, x, y, w, h, text)
+    self.translation = translation
+
+  @classmethod
+  def as_translated(cls, parent, translation):
+    """
+    Create a new TranslatedBlurb object based on an existing Blurb object and a translation.
+
+    Args:
+        parent (Blurb): The parent Blurb object to inherit attributes from.
+        translation (str): The translated text.
+
+    Returns:
+        TranslatedBlurb: The new TranslatedBlurb object.
+    """
+    return cls(parent.x, parent.y, parent.w, parent.h, parent.text, translation)
     
-    try:
+def translate_blurb(blurb, output_language):
+  """
+  Translate the text content of a Blurb object to English and create a TranslatedBlurb object.
+
+    Args:
+        blurb (Blurb): The Blurb object to be translated.
+
+    Returns:
+      blurb (Blurb): The Blurb object translated.
+  """
+  logging.debug("Text before translation : %s", blurb.clean_text())
+  # Decode the Unicode string to a regular string
+
+  try:
       if googletrans:
-        translated_text = translator.translate(blurb.clean_text(), dest=output_language)
-        translation = translated_text.text.encode('utf-8', 'ignore')
+          translated_text = translator.translate(blurb.clean_text(), dest=output_language)
       else:
-        translated_text = translator.translate(blurb.clean_text())
-        translation = translated_text.encode('utf-8', 'ignore')
+          translated_text = translator.translate(blurb.clean_text())
 
-    except Exception as e:
-       logging.error(e)
-       logging.error(blurb.clean_text())
-       translation = ''
+      logging.debug("Raw non encoded translated text : %s", translated_text.text)
 
-    return TranslatedBlurb.as_translated(blurb, translation)
+  except Exception as e:
+      logging.error(e)
+      logging.error(blurb.clean_text())
+      translated_text = ''
+
+  return TranslatedBlurb.as_translated(blurb, translated_text.text)
 
 def flow_into_box(text, w, font, min_word_on_line=0.3):
     """
@@ -318,8 +320,10 @@ def get_blurbs(img, input_language, ocr_mode):
 
       #OCR recognition
       text = pytesseract.image_to_string(pil_image, lang=input_language, config=get_params(ocr_mode))
-      text = text.replace("\n", "")
-      text = text.replace("\x0c", "")      
+      #text = text.replace("\n", "")
+      #text = text.replace("\x0c", "")      
+      text = clean_text_jp(text, twitter=False, han2zen=True)
+      
       if text and text.strip() and text != None:
         #filter out noise under x characters
         if len(text)>3:
@@ -428,6 +432,7 @@ def main():
       input_language = 'jpn_vert'
   
   ocr_mode = 5
+  # in case of vertical text use the appropriate OCR mode
   if 'vert' not in input_language:
     ocr_mode = 6
      
@@ -454,6 +459,8 @@ def main():
   if not os.path.exists(output_folder):
       # If it doesn't exist, create it
       os.makedirs(output_folder)
+      logging.debug("Creating an output folder for the translation.")
+
 
   # Check if the output JSON file already exists
   output_json_file = os.path.join(output_folder, "translations.json")
@@ -463,6 +470,7 @@ def main():
       # If the JSON file exists, load its contents into the translations dictionary
       with open(output_json_file, "r", encoding="utf-8") as json_file:
         try:
+          logging.debug("JSON already present. loading it's content...")
           translations = json.load(json_file)
         except Exception as e:
             # Handle JSON loading errors here
@@ -480,7 +488,7 @@ def main():
 
       # ocr already output original text previously, just do a simple translation 
       if 'original_text' in str(translations.get(image_filename, {})):
-        logging.debug("simple translation")
+        logging.debug("Starting a simple translation, because the ocr output is already present")
         for a in range(0, len(translations[names[i]])-1):
 
           #get the original text that is already referenced in the json
@@ -514,23 +522,22 @@ def main():
             except Exception as e:
               # Handle the exception, print debugging information, or remove the problematic data
               logging.error(str(e))
-
-
-
       else:
         logging.debug("full translation")
 
         blurbs, height, width = get_blurbs(img, input_language, ocr_mode)
 
         for blurb in blurbs:
-          logging.debug("blurb number : %s", b)
-          logging.debug("out of : %s", len(blurbs))
-
+          logging.debug("Processing blurb number %s/%s", b, len(blurbs))
           b += 1
           if output_json:
             # Translate the blurb and store the translation information in the dictionary
+
             translated = translate_blurb(blurb, output_language)
-            text = clean_trans_output(str(translated.translation.decode("utf-8", 'ignore')))
+            raw_translated_text = str(translated.translation.decode("utf-8", 'ignore'))
+            logging.debug("Raw translated text : %s", raw_translated_text)
+
+            text = clean_trans_output(raw_translated_text)
             if translated.translation != '' and len(text.split()) > 3:
               #if meta already collected
               #if str(blurb.text) in translations.get(image_filename, {}):
@@ -585,10 +592,11 @@ def main():
 if __name__ == "__main__":
 
   logging.basicConfig(
-    level=logging.INFO,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    level=logging.DEBUG,  # Set the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
     filename='trad.log',  # Specify a log file
     format='%(asctime)s [%(levelname)s]: %(message)s',  # Define the log message format
-    datefmt='%Y-%m-%d %H:%M:%S'  # Define the date format
+    datefmt='%Y-%m-%d %H:%M:%S',  # Define the date format
+    encoding='utf-8'  # Set the encoding to UTF-8
   )
 
   # Set the custom exception handler

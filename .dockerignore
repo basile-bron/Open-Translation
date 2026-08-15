@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.env.example
+*.md
+Pipfile
+Pipfile.lock
+original
+uploads
+trad.log
+__pycache__
+*.pyc

@@ -2,121 +2,68 @@
 
 ![banner](banner_github.jpg)
 
-## About
+Manga-page translation. OCR finds the text bubbles, a language model cleans and translates them, and you get either a composited image or JSON with relative coordinates (`x`, `y`, `w`, `h` as ratios of the page) so you can render the translation at any scale.
 
-Manga page translation. get a translated image or a json conataining the dialogue output with it size and location.
+## Requirements
 
-## Installation
+- Python 3.10
+- [Tesseract](https://github.com/tesseract-ocr/tessdata_best) with the language packs you need (`jpn_vert` for vertical Japanese)
+- A [Groq](https://console.groq.com/) API key for translation
 
-```
-pipenv install
-```
-
-### Download Tesseract here :
-https://github.com/UB-Mannheim/tesseract/wiki
-
-
-### Edit the path of tesseract in the script:
-```
-pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
-```
-### Download the tesseract languages required
-
-replace 'LANG' with the language you need. for example jpn_vert for japanese vertical text. 
-
-You can list all available language:
-```
-tesseract --list-langs
-```
-or manualy download them at :
-
-https://github.com/tesseract-ocr/tessdata_best
-
-
-
-#### Linux :
-```
-apt-get install tesseract-ocr-LANG
+```bash
+cp .env.example .env
+# put GROQ_API_KEY in .env — never commit that file
+pip install -r requirements.txt
 ```
 
-#### Windows :
+On Windows only, if `tesseract` is not on your `PATH`:
+
+```bash
+# in .env
+TESSERACT_CMD=C:/Program Files/Tesseract-OCR/tesseract.exe
 ```
-cd YOUR/TESSERACT/PATH/Tesseract-OCR/tessdata
-curl -LO https://github.com/tesseract-ocr/tessdata_best/LANG.traineddata
-```
-#### Mac :
-In mac you can just install all languages like so:
-```
+
+Install a language pack:
+
+```bash
+# Linux
+sudo apt-get install tesseract-ocr-jpn tesseract-ocr-jpn-vert
+
+# macOS
 brew install tesseract-lang
+
+# Windows — from the tessdata folder
+curl -LO https://github.com/tesseract-ocr/tessdata_best/raw/main/jpn_vert.traineddata
 ```
 
-## Command line
+## Docker
 
-### Option and usage
+```bash
+export GROQ_API_KEY=your_key
+docker compose up --build
 ```
+
+API listens on `http://localhost:8080`. Health check: `GET /health`.
+
+## CLI
+
+```text
 usage: trad.py [-h] [-i INPUT_LANGUAGE] [-o OUTPUT_LANGUAGE] [-if INPUT_FOLDER]
                [-of OUTPUT_FOLDER] [-t TRANSPARENCY] [-j JSON]
-
-options:
-  -h, --help            show this help message and exit
-  -i INPUT_LANGUAGE, --input_language INPUT_LANGUAGE
-                        Input language ('jpn_vert' for Japanese vertical) more     
-                        at: https://tesseract-ocr.github.io/tessdoc/Data-Files-    
-                        in-different-versions.html
-  -o OUTPUT_LANGUAGE, --output_language OUTPUT_LANGUAGE
-                        Output language ('en' by default)
-  -if INPUT_FOLDER, --input_folder INPUT_FOLDER
-                        Input folder path
-  -of OUTPUT_FOLDER, --output_folder OUTPUT_FOLDER
-                        Output folder path
-  -t TRANSPARENCY, --transparency TRANSPARENCY
-                        Transparency (between 1 and 255)
-  -j JSON, --json JSON  return only the translated text
 ```
 
-### Example
-```
-& C:/Python310/python.exe ./trad.py  -i 'jpn_vert' -if "./original/001.jpg"
-```
-____
-
-## Additionnal informations
-
-### Json output :
-  instead of getting a translated image you can ask for a json file containing for each image i.g for output language = "en" you will get for each text buble:
-
-  ```
-  "x"
-  "y"
-  "w"
-  "h"
-  "original_text"
-  "text_fr"
-  "font_size_fr
-  ```
-
-  Cords and sizes are a ratio not a pixel size.
-  i.e  height 0.5 is a buble of half of the height of the original image.
-  it allows you to render the translation on any size and scale of the original image.
-
-## PSM reminder
-```
-    Page segmentation modes:
-      0    Orientation and script detection (OSD) only.
-      1    Automatic page segmentation with OSD.
-      2    Automatic page segmentation, but no OSD, or OCR.
-      3    Fully automatic page segmentation, but no OSD. (Default)
-      4    Assume a single column of text of variable sizes.
-      5    Assume a single uniform block of vertically aligned text.
-      6    Assume a single uniform block of text.
-      7    Treat the image as a single text line.
-      8    Treat the image as a single word.
-      9    Treat the image as a single word in a circle.
-    10    Treat the image as a single character.
-    11    Sparse text. Find as much text as possible in no particular order.
-    12    Sparse text with OSD.
-    13    Raw line. Treat the image as a single text line,
+```bash
+python trad.py -i jpn_vert -if ./original -of ./translated
 ```
 
-## Available languages at :
-https://tesseract-ocr.github.io/tessdoc/Data-Files-in-different-versions.html
+JSON fields per bubble:
+
+| field | meaning |
+| --- | --- |
+| `x`, `y`, `w`, `h` | position and size as a ratio of the page |
+| `original_text_<lang>` | OCR output |
+| `text_<lang>` | translation |
+
+## API
+
+`POST /translate` with an image upload and an `Authorization: Bearer <key>` header (`demo_key` for local tests). See `main.py`.

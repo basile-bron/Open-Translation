@@ -29,7 +29,27 @@ use_groq_api = True
 #  from translate import Translator
 #  translator= Translator(to_lang="english")
 
-from groqito import groq_translate  
+from groqito import groq_translate
+
+
+def resolve_font_path():
+    candidates = [
+        os.environ.get("FONT_PATH"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts", "DejaVuSans.ttf"),
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "C:/Windows/Fonts/arial.ttf",
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path):
+            return path
+    raise FileNotFoundError("No TTF font found. Set FONT_PATH to a .ttf file.")
+
+
+def configure_tesseract():
+    tesseract_cmd = os.environ.get("TESSERACT_CMD")
+    if tesseract_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
 
 
 class Blurb(object):
@@ -132,30 +152,16 @@ def translate_blurb(blurb, output_language):
       blurb (Blurb): The Blurb object translated.
   """
   logging.debug("Text before translation : %s", blurb.clean_text())
-  # Decode the Unicode string to a regular string
 
   try:
-      if googletrans:
-        
-        if output_language:
-            translated_text = translator.translate(blurb.clean_text(), dest=output_language)
-        else:
-            translated_text = translator.translate(blurb.clean_text())
-
-      else :
-        translation = groq_translate( blurb.clean_text(), output_language)
-        translation = translation.text.encode('utf-8', 'ignore')
-        logging.info(translation)
-
-        
-      logging.debug("Raw non encoded translated text : %s", translated_text.text)
-
+      translation = groq_translate(blurb.clean_text(), output_language)
+      translated_text = translation.text.encode("utf-8", "ignore")
+      logging.debug("Raw translated text : %s", translated_text)
+      return TranslatedBlurb.as_translated(blurb, translated_text)
   except Exception as e:
       logging.error(e)
       logging.error(blurb.clean_text())
-      translated_text = ''
-
-  return TranslatedBlurb.as_translated(blurb, translated_text.text)
+      return TranslatedBlurb.as_translated(blurb, b"")
 
 def flow_into_box(text, w, font, min_word_on_line=0.3):
     """
@@ -216,7 +222,7 @@ def typeset_blurb(img, blurb, transparency :int):
         if fontsize < 12:
             fontsize = 12
 
-        usingFont = ImageFont.truetype("C:/Users/Skull/Documents/github/Open-Translation/Arial.ttf", fontsize)
+        usingFont = ImageFont.truetype(resolve_font_path(), fontsize)
 
         # Split the text into lines with word wrap
         lines = textwrap.wrap(text, width=20)  # Adjust the width as needed
@@ -619,8 +625,7 @@ if __name__ == "__main__":
   # Set the custom exception handler
   sys.excepthook = log_exception
   
-  # edit the path of tesseract to yours:
-  pytesseract.pytesseract.tesseract_cmd = "C:/Program Files/Tesseract-OCR/tesseract.exe"
+  configure_tesseract()
 
   main()
   # to uncomment for benchmark and optimisation review
